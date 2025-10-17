@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>議会シミュレーション (最終版)</title>
+
+    <!-- スタイルシート(CSS) -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        #main-container {
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 800px;
+            padding: 20px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .bill-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        .bill-card h3 {
+            margin-top: 0;
+            color: #0056b3;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        #results-container .result {
+            border: 1px solid #ced4da;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap; /* 改行を反映させる */
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.95em;
+        }
+        #parliament-info p {
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ページの表示内容(HTML) -->
+    <div id="main-container">
+        <h1>議会シミュレーション (最終版)</h1>
+        <div id="parliament-info"></div>
+        <hr>
+        <h2>法案一覧</h2>
+        <div id="bills-container"></div>
+        <hr>
+        <h2>投票結果</h2>
+        <div id="results-container">
+            <p>各法案の「投票する」ボタンを押してください。</p>
+        </div>
+    </div>
+
+    <!-- ゲームのロジック(JavaScript) -->
+    <script>
+        // --- クラス定義 ---
+        class Politician {
+            constructor(name, party, ideology) {
+                this.name = name;
+                this.party = party;
+                this.ideology = ideology;
+            }
+        }
+
+        class Party {
+            constructor(name) {
+                this.name = name;
+                this.members = [];
+            }
+            addMember(politician) { this.members.push(politician); }
+        }
+
+        class Bill {
+            constructor(name, description, supportRates, abstainRates) {
+                this.name = name;
+                this.description = description;
+                this.supportRates = supportRates; // 例: { conservative: 0.8, liberal: 0.2, ... }
+                this.abstainRates = abstainRates; // 例: { conservative: 0.1, liberal: 0.1, ... }
+            }
+        }
+
+        class Parliament {
+            constructor(members) {
+                this.members = members;
+            }
+
+            holdVote(bill) {
+                let ayes = 0;
+                let nays = 0;
+                let abstains = 0; // 棄権票
+
+                this.members.forEach(member => {
+                    const supportChance = bill.supportRates[member.ideology] || 0;
+                    const abstainChance = bill.abstainRates[member.ideology] || 0;
+
+                    const rand = Math.random();
+
+                    if (rand < supportChance) {
+                        ayes++; // 賛成
+                    } else if (rand < supportChance + abstainChance) {
+                        abstains++; // 棄権
+                    } else {
+                        nays++; // 反対
+                    }
+                });
+
+                // 結果をオブジェクトとして返す
+                return {
+                    billName: bill.name,
+                    ayes: ayes,
+                    nays: nays,
+                    abstains: abstains,
+                    passed: ayes > nays // 可決条件は「賛成 > 反対」
+                };
+            }
+        }
+
+
+        // --- HTMLの読み込み完了後に実行 ---
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- ゲームのセットアップ ---
+            const conservativeParty = new Party("保守党");
+            const liberalParty = new Party("リベラル党");
+            const centristParty = new Party("改進党");
+            const fascistParty = new Party("ファシズム党");
+
+            const parties = [conservativeParty, liberalParty, centristParty, fascistParty];
+            const politicians = [];
+
+            // 議員の作成
+            // 保守党 (30名) - イデオロギー: conservative
+            for (let i = 1; i <= 30; i++) {
+                const p = new Politician(`保守党議員${i}`, conservativeParty, "conservative");
+                politicians.push(p);
+                conservativeParty.addMember(p);
+            }
+            // リベラル党 (30名) - イデオロギー: liberal
+            for (let i = 1; i <= 30; i++) {
+                const p = new Politician(`リベラル党議員${i}`, liberalParty, "liberal");
+                politicians.push(p);
+                liberalParty.addMember(p);
+            }
+            // 改進党 (20名) - イデオロギー: centrist
+            for (let i = 1; i <= 20; i++) {
+                const p = new Politician(`改進党議員${i}`, centristParty, "centrist");
+                politicians.push(p);
+                centristParty.addMember(p);
+            }
+             // ファシズム党 (20名) - イデオロギー: fascist
+            for (let i = 1; i <= 20; i++) {
+                const p = new Politician(`ファシズム党議員${i}`, fascistParty, "fascist");
+                politicians.push(p);
+                fascistParty.addMember(p);
+            }
+
+            const parliament = new Parliament(politicians);
+
+            // 法案の定義 (4つのイデオロギーに対応)
+            const bills = [
+                new Bill("富裕層減税法案", "所得税の最高税率を引き下げることで、経済の活性化を図る。", 
+                    { conservative: 0.80, liberal: 0.10, centrist: 0.40, fascist: 0.60 }, // 賛成率
+                    { conservative: 0.15, liberal: 0.20, centrist: 0.50, fascist: 0.30 }  // 棄権率
+                ),
+                new Bill("環境保護強化法案", "企業の二酸化炭素排出規制を強化し、再生可能エネルギーへの移行を促進する。",
+                    { conservative: 0.20, liberal: 0.85, centrist: 0.65, fascist: 0.10 },
+                    { conservative: 0.40, liberal: 0.10, centrist: 0.25, fascist: 0.20 }
+                ),
+                new Bill("国家統制法案", "治安維持を名目に、政府による国民の監視権限を大幅に強化する。",
+                    { conservative: 0.40, liberal: 0.05, centrist: 0.20, fascist: 0.90 },
+                    { conservative: 0.40, liberal: 0.15, centrist: 0.60, fascist: 0.05 }
+                )
+            ];
+
+            // --- HTMLへの表示処理 ---
+            const parliamentInfoDiv = document.getElementById('parliament-info');
+            const billsContainer = document.getElementById('bills-container');
+            const resultsContainer = document.getElementById('results-container');
+
+            // 議会情報を表示
+            let partyInfoHTML = `<p><strong>総議員数:</strong> ${parliament.members.length}名</p>`;
+            parties.forEach(party => {
+                partyInfoHTML += `<p><strong>${party.name}:</strong> ${party.members.length}名</p>`;
+            });
+            parliamentInfoDiv.innerHTML = partyInfoHTML;
+
+            // 法案リストを表示
+            billsContainer.innerHTML = bills.map((bill, index) => `
+                <div class="bill-card">
+                    <h3>${bill.name}</h3>
+                    <p>${bill.description}</p>
+                    <button class="vote-button" data-bill-index="${index}">投票する</button>
+                </div>
+            `).join('');
+            
+            // 結果表示エリアを初期化
+            resultsContainer.innerHTML = '';
+
+            // --- ボタンクリック時の処理 ---
+            document.querySelectorAll('.vote-button').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const billIndex = event.target.dataset.billIndex;
+                    const result = parliament.holdVote(bills[billIndex]);
+
+                    const resultDiv = document.createElement('div');
+                    resultDiv.className = 'result';
+                    // 棄権票も表示
+                    const resultText = `
+--- 投票結果: ${result.billName} ---
+  賛成: ${result.ayes}
+  反対: ${result.nays}
+  棄権: ${result.abstains}
+
+  結果: ${result.passed ? '可決されました。' : '否決されました。'}
+                    `;
+                    resultDiv.innerText = resultText;
+                    
+                    // 新しい結果を一番上に追加
+                    resultsContainer.prepend(resultDiv);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
